@@ -29,6 +29,13 @@ shift
 goto :parse_args
 
 :run
+:: По умолчанию показываем только файлы в текущей папке с полными путями
+if not defined LS_SHOWPATHS if not defined LS_RECURSE if not defined LS_SHOWFILES if not defined LS_SHOWDIRS if not defined LS_LONG if not defined LS_SHOWSIZE (
+    echo [Список файлов с полными путями]
+    for %%F in (%LS_MASK%) do if not exist "%%F\" echo %%~fF
+    exit /b
+)
+
 if defined LS_SHOWPATHS (
     echo [Список файлов с полными путями]
     for /r %%F in (%LS_MASK%) do if not exist "%%F\" echo %%~fF
