@@ -13,6 +13,7 @@ set "LS_LONG="
 set "LS_SHOWSIZE="
 set "LS_MASK=*"
 set "LS_SHOWPATHS="
+set "LS_SHOWCONTENT="
 
 if /i "%~1"=="/?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -24,15 +25,36 @@ if /i "%~1"=="/d" set "LS_SHOWPATHS=1" & set "LS_RECURSE=1" & set "LS_SHOWFILES=
 if /i "%~1"=="/f" set "LS_SHOWFILES=1" & shift & goto :parse_args
 if /i "%~1"=="/l" set "LS_LONG=1" & shift & goto :parse_args
 if /i "%~1"=="/v" set "LS_SHOWSIZE=1" & shift & goto :parse_args
+if /i "%~1"=="/t" set "LS_SHOWCONTENT=1" & shift & goto :parse_args
 set "LS_MASK=%~1"
 shift
 goto :parse_args
 
 :run
 :: По умолчанию показываем только файлы в текущей папке с полными путями
-if not defined LS_SHOWPATHS if not defined LS_RECURSE if not defined LS_SHOWFILES if not defined LS_SHOWDIRS if not defined LS_LONG if not defined LS_SHOWSIZE (
+if not defined LS_SHOWPATHS if not defined LS_RECURSE if not defined LS_SHOWFILES if not defined LS_SHOWDIRS if not defined LS_LONG if not defined LS_SHOWSIZE if not defined LS_SHOWCONTENT (
     echo [Список файлов с полными путями]
     for %%F in (%LS_MASK%) do if not exist "%%F\" echo %%~fF
+    exit /b
+)
+
+:: Вывод содержимого файлов для /t или /d /t
+if defined LS_SHOWCONTENT (
+    if defined LS_SHOWPATHS (
+        echo [Содержимое файлов с полными путями рекурсивно]
+        for /r %%F in (%LS_MASK%) do if not exist "%%F\" (
+            echo === Содержимое файла: %%~fF ===
+            type "%%~fF"
+            echo.
+        )
+    ) else (
+        echo [Содержимое файлов в текущей папке]
+        for %%F in (%LS_MASK%) do if not exist "%%F\" (
+            echo === Содержимое файла: %%~fF ===
+            type "%%~fF"
+            echo.
+        )
+    )
     exit /b
 )
 
@@ -98,11 +120,14 @@ echo   /d  выводить полные пути до всех файлов р�
 echo   /f  только файлы
 echo   /l  подробный режим (дата, время, размер)
 echo   /v  показывать вес папок и файлов (медленнее для папок)
+echo   /t  выводить содержимое файлов, как команда type
 echo   маска, напр. *.exe
 echo Примеры:
 echo   ls
 echo   ls /v
 echo   ls /l /v
 echo   ls /s /l /v *.dll
+echo   ls /t
+echo   ls /d /t
 echo.
 exit /b
