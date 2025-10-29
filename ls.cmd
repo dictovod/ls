@@ -14,6 +14,7 @@ set "LS_SHOWSIZE="
 set "LS_MASK=*"
 set "LS_SHOWPATHS="
 set "LS_SHOWCONTENT="
+set "LS_EXCLUDE="        :: [NEW] список исключаемых расширений
 
 if /i "%~1"=="/?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -26,6 +27,14 @@ if /i "%~1"=="/f" set "LS_SHOWFILES=1" & shift & goto :parse_args
 if /i "%~1"=="/l" set "LS_LONG=1" & shift & goto :parse_args
 if /i "%~1"=="/v" set "LS_SHOWSIZE=1" & shift & goto :parse_args
 if /i "%~1"=="/t" set "LS_SHOWCONTENT=1" & shift & goto :parse_args
+
+:: [NEW] Обработка параметра /x
+if /i "%~1"=="/x" (
+    set "LS_EXCLUDE=%~2"
+    shift & shift
+    goto :parse_args
+)
+
 set "LS_MASK=%~1"
 shift
 goto :parse_args
@@ -43,16 +52,26 @@ if defined LS_SHOWCONTENT (
     if defined LS_SHOWPATHS (
         echo [Содержимое файлов с полными путями рекурсивно]
         for /r %%F in (%LS_MASK%) do if not exist "%%F\" (
-            echo === Содержимое файла: %%~fF ===
-            type "%%~fF"
-            echo.
+            call :shouldSkip "%%~xF"
+            if "!LS_SKIP!"=="1" (
+                rem пропускаем файл
+            ) else (
+                echo === Содержимое файла: %%~fF ===
+                type "%%~fF"
+                echo.
+            )
         )
     ) else (
         echo [Содержимое файлов в текущей папке]
         for %%F in (%LS_MASK%) do if not exist "%%F\" (
-            echo === Содержимое файла: %%~fF ===
-            type "%%~fF"
-            echo.
+            call :shouldSkip "%%~xF"
+            if "!LS_SKIP!"=="1" (
+                rem пропускаем файл
+            ) else (
+                echo === Содержимое файла: %%~fF ===
+                type "%%~fF"
+                echo.
+            )
         )
     )
     exit /b
@@ -112,6 +131,17 @@ for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command ^
 if not defined LS_DIRSIZE set "LS_DIRSIZE=0"
 exit /b
 
+:: [NEW] Проверка, нужно ли пропустить файл по расширению
+:shouldSkip
+set "LS_SKIP=0"
+set "EXT=%~1"
+if defined LS_EXCLUDE (
+    for %%E in (%LS_EXCLUDE%) do (
+        if /i "!EXT!"=="%%~E" set "LS_SKIP=1"
+    )
+)
+exit /b
+
 :help
 echo.
 echo Использование: ls [опции] [маска]
@@ -121,6 +151,7 @@ echo   /f  только файлы
 echo   /l  подробный режим (дата, время, размер)
 echo   /v  показывать вес папок и файлов (медленнее для папок)
 echo   /t  выводить содержимое файлов, как команда type
+echo   /x  "расширения через запятую", которые нужно исключить при /t
 echo   маска, напр. *.exe
 echo Примеры:
 echo   ls
@@ -128,6 +159,7 @@ echo   ls /v
 echo   ls /l /v
 echo   ls /s /l /v *.dll
 echo   ls /t
-echo   ls /d /t
+echo   ls /t /x ".exe,.dll,.jpg"
+echo   ls /d /t /x ".log,.tmp"
 echo.
 exit /b
