@@ -39,7 +39,7 @@ goto :parse_args
 :run
 if defined LS_TREE (
     echo [Дерево каталогов]
-    call :printTree "."
+    call :printTreeRecursive "." "" "1"
     exit /b
 )
 
@@ -140,31 +140,59 @@ if defined LS_EXCLUDE (
 )
 exit /b
 
-:printTree
+:printTreeRecursive
 setlocal EnableDelayedExpansion
-set "BASE=%~1"
+set "CURRENT_DIR=%~1"
 set "PREFIX=%~2"
-pushd "%BASE%" >nul 2>&1 || exit /b
+set "IS_ROOT=%~3"
 
-set i=0
-for /f "delims=" %%A in ('dir /b /a-d 2^>nul') do (
-    set /a i+=1
-    set "ITEM[!i!]=%%A"
-)
-for /f "delims=" %%A in ('dir /b /ad 2^>nul') do (
-    set /a i+=1
-    set "ITEM[!i!]=%%A\"
+pushd "%CURRENT_DIR%" >nul 2>&1 || exit /b
+
+:: Если это корневой вызов, покажем имя папки (без кавычек)
+if "!IS_ROOT!"=="1" (
+    echo ┌ %CD%\
+    set "PREFIX="
 )
 
-for /l %%I in (1,1,!i!) do (
-    set "NAME=!ITEM[%%I]!"
-    if %%I==!i! (
-        echo !PREFIX!└── !NAME!
-        if "!NAME:~-1!"=="\" call :printTree "!BASE!\!NAME:~0,-1!" "!PREFIX!    "
+:: Собираем файлы
+set "FILE_COUNT=0"
+for /f "delims=" %%F in ('dir /b /a-d 2^>nul') do (
+    set /a FILE_COUNT+=1
+    set "FILE[!FILE_COUNT!]=%%F"
+)
+
+:: Собираем папки
+set "DIR_COUNT=0"
+for /f "delims=" %%D in ('dir /b /ad 2^>nul') do (
+    set /a DIR_COUNT+=1
+    set "DIR[!DIR_COUNT!]=%%D"
+)
+
+:: Выводим файлы
+for /l %%I in (1,1,!FILE_COUNT!) do (
+    :: Определяем, является ли этот элемент последним
+    if %%I==!FILE_COUNT! (
+        if !DIR_COUNT!==0 (
+            echo !PREFIX!└── !FILE[%%I]!
+        ) else (
+            echo !PREFIX!├── !FILE[%%I]!
+        )
     ) else (
-        echo !PREFIX!├── !NAME!
-        if "!NAME:~-1!"=="\" call :printTree "!BASE!\!NAME:~0,-1!" "!PREFIX!│   "
+        echo !PREFIX!├── !FILE[%%I]!
     )
+)
+
+:: Выводим папки и рекурсивно обрабатываем их
+for /l %%I in (1,1,!DIR_COUNT!) do (
+    :: Определяем, является ли эта папка последним элементом
+    if %%I==!DIR_COUNT! (
+        echo !PREFIX!└── !DIR[%%I]!\
+        set "NEW_PREFIX=!PREFIX!    "
+    ) else (
+        echo !PREFIX!├── !DIR[%%I]!\
+        set "NEW_PREFIX=!PREFIX!│   "
+    )
+    call :printTreeRecursive "!DIR[%%I]!" "!NEW_PREFIX!" "0"
 )
 
 popd >nul
