@@ -51,7 +51,7 @@ goto :parse_args
 :run
 if defined LS_TREE (
     echo [Дерево каталогов]
-    call :printTree "."
+    call :printTree
     exit /b
 )
 
@@ -193,39 +193,41 @@ exit /b
 
 :printTree
 setlocal EnableDelayedExpansion
-set "BASE=%~1"
-set "PREFIX=%~2"
-pushd "%BASE%" >nul 2>&1 || exit /b
 
-set i=0
+rem Создаем временные файлы
+set "TEMP_IN=%TEMP%\ls_tree_in_%RANDOM%.txt"
+set "TEMP_OUT=%TEMP%\ls_tree_out_%RANDOM%.txt"
 
-rem Файлы
-for /f "delims=" %%A in ('dir /b /a-d 2^>nul') do (
-    set /a i+=1
-    set "ITEM[!i!]=%%A"
-)
+rem Получаем вывод tree
+tree /F /A > "%TEMP_IN%" 2>nul
 
-rem Директории
-for /f "delims=" %%A in ('dir /b /ad 2^>nul') do (
-    call :isInExcludedDir "%CD%\%%A"
-    if "!LS_INEXCL!"=="0" (
-        set /a i+=1
-        set "ITEM[!i!]=%%A\"
-    )
-)
-
-for /l %%I in (1,1,!i!) do (
-    set "NAME=!ITEM[%%I]!"
-    if %%I==!i! (
-        echo !PREFIX!└── !NAME!
-        if "!NAME:~-1!"=="\" call :printTree "!BASE!\!NAME:~0,-1!" "!PREFIX!    "
+rem Обрабатываем файл
+set "SKIP_HEADER=1"
+(for /f "usebackq delims=" %%L in ("%TEMP_IN%") do (
+    set "LINE=%%L"
+    
+    rem Пропускаем заголовок
+    if "!SKIP_HEADER!"=="1" (
+        echo !LINE! | findstr /C:"C:\." >nul
+        if not errorlevel 1 set "SKIP_HEADER=0"
     ) else (
-        echo !PREFIX!├── !NAME!
-        if "!NAME:~-1!"=="\" call :printTree "!BASE!\!NAME:~0,-1!" "!PREFIX!│   "
+        rem Заменяем символы (важно: делаем это в переменной, не в echo)
+        set "LINE=!LINE:+---=├── !"
+        set "LINE=!LINE:\---=└── !"
+        set "LINE=!LINE:|   =│   !"
+        
+        rem Выводим в файл, не в консоль
+        echo(!LINE!
     )
-)
+)) > "%TEMP_OUT%"
 
-popd >nul
+rem Выводим готовый файл через type (безопасно)
+type "%TEMP_OUT%"
+
+rem Удаляем временные файлы
+del "%TEMP_IN%" >nul 2>&1
+del "%TEMP_OUT%" >nul 2>&1
+
 endlocal
 exit /b
 
@@ -240,6 +242,6 @@ echo /v       показывать размер
 echo /t       выводить содержимое файлов
 echo /x       исключить расширения
 echo /xd      исключить папки ("bin,obj")
-echo /tree    дерево каталогов ls /tree /xd "bin,obj"
+echo /tree    дерево каталогов с файлами (ls /tree /xd "bin,obj")
 echo.
 exit /b
